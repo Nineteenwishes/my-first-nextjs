@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import ChatWidget from "@/components/ChatWidget";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,11 +24,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Set tema sebelum React hydration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => { try {
+              const theme = localStorage.getItem('theme');
+              const d = document.documentElement;
+              if (theme === 'dark') {
+                d.classList.add('dark');
+              } else if (theme === 'light') {
+                d.classList.remove('dark');
+              } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                d.classList.add('dark');
+              }
+            } catch (e) {} })();`,
+          }}
+        />
         {children}
+        <ChatWidget />
       </body>
     </html>
   );

@@ -86,3 +86,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: errorMessage }, { status })
     }
 }
+
+export async function GET() {
+  return NextResponse.json({
+    message: "API chat aktif (GET OK)",
+  })
+}

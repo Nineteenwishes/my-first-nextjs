@@ -5,13 +5,16 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Trash2, Copy, Check, Send, Bot, User, X, MessageSquare } from 'lucide-react';
+import { Trash2, Copy, Check, Send, Bot, User, X, MessageSquare, ImageIcon } from 'lucide-react';
 
+// Updated interface dengan support gambar
 interface Message {
     id: number;
     text: string;
     sender: 'user' | 'bot';
     timestamp: Date;
+    image?: string;       // Base64 image data
+    imagePrompt?: string; // Prompt yang digunakan untuk generate
 }
 
 export default function ChatWidget() {
@@ -92,7 +95,7 @@ export default function ChatWidget() {
             // Welcome message if no history
             setMessages([{
                 id: 1,
-                text: "Hello! 👋 I'm Akbar Maulana Bot. How can I help you today?",
+                text: "Hello! 👋 I'm Akbar Maulana Bot. How can I help you today? I can also generate images for you! 🎨",
                 sender: 'bot',
                 timestamp: new Date()
             }]);
@@ -115,10 +118,10 @@ export default function ChatWidget() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isTyping, isOpen]);
 
-    // Fungsi untuk mengirim pesan ke API
+    // Fungsi untuk mengirim pesan ke API - updated untuk handle gambar
     const sendMessageToAI = async (userMessage: string) => {
         try {
-            // Siapkan history untuk context
+            // Siapkan history untuk context (10 pesan terakhir)
             const history = messages
                 .filter(msg => msg.id !== 1)
                 .slice(-10)
@@ -139,7 +142,13 @@ export default function ChatWidget() {
             }
 
             const data = await response.json();
-            return data.message;
+
+            // Return object dengan message dan optional image
+            return {
+                message: data.message,
+                image: data.image || null,
+                imagePrompt: data.imagePrompt || null,
+            };
         } catch (error) {
             console.error('Error calling AI:', error);
             throw error;
@@ -166,11 +175,14 @@ export default function ChatWidget() {
             const aiResponse = await sendMessageToAI(userMessage);
             setIsTyping(false);
 
+            // Tambah response AI (dengan atau tanpa gambar)
             const botMessage: Message = {
                 id: Date.now() + 1,
-                text: aiResponse,
+                text: aiResponse.message,
                 sender: 'bot',
-                timestamp: new Date()
+                timestamp: new Date(),
+                image: aiResponse.image || undefined,
+                imagePrompt: aiResponse.imagePrompt || undefined,
             };
 
             setMessages(prev => [...prev, botMessage]);
@@ -193,7 +205,7 @@ export default function ChatWidget() {
             localStorage.removeItem('chatbot-history');
             setMessages([{
                 id: 1,
-                text: "Hello! 👋 I'm Akbar Maulana Bot. How can I help you today?",
+                text: "Hello! 👋 I'm Akbar Maulana Bot. How can I help you today? I can also generate images for you! 🎨",
                 sender: 'bot',
                 timestamp: new Date()
             }]);
@@ -238,6 +250,11 @@ export default function ChatWidget() {
         }
     };
 
+    // Handler untuk buka gambar di tab baru
+    const handleImageClick = (imageData: string) => {
+        window.open(imageData, '_blank');
+    };
+
     const formatTime = (date: Date) => {
         return new Intl.DateTimeFormat('en-US', {
             hour: 'numeric',
@@ -269,7 +286,7 @@ export default function ChatWidget() {
                             <h3 className="text-white font-semibold text-base sm:text-lg leading-tight">Akbar Maulana Bot</h3>
                             <p className="text-gray-400 text-[10px] sm:text-xs flex items-center gap-1.5">
                                 <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-pulse ${isTyping ? 'bg-blue-400' : 'bg-green-400'}`}></span>
-                                {isTyping ? 'Bot is thinking...' : 'Online'}
+                                {isTyping ? 'Sedang memproses...' : 'Online'}
                             </p>
                         </div>
                     </div>
@@ -345,6 +362,34 @@ export default function ChatWidget() {
                                         <p className="text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
                                     )}
 
+                                    {/* Generated Image Display */}
+                                    {message.image && (
+                                        <div className="mt-3 space-y-2">
+                                            <div
+                                                className="relative group/image cursor-pointer overflow-hidden rounded-xl border border-gray-200 dark:border-zinc-600 shadow-lg hover:shadow-xl transition-all duration-300"
+                                                onClick={() => handleImageClick(message.image!)}
+                                            >
+                                                <img
+                                                    src={message.image}
+                                                    alt="Generated image"
+                                                    className="w-full max-w-full rounded-xl hover:scale-[1.02] transition-transform duration-300"
+                                                />
+                                                {/* Hover overlay */}
+                                                <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors duration-300 flex items-center justify-center">
+                                                    <div className="opacity-0 group-hover/image:opacity-100 transition-opacity duration-300 bg-white/90 dark:bg-zinc-800/90 px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg">
+                                                        <ImageIcon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-200">Klik untuk perbesar</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {message.imagePrompt && (
+                                                <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 italic px-1">
+                                                    Prompt: {message.imagePrompt}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* 4. Copy Response Button */}
                                     {message.sender === 'bot' && (
                                         <button
@@ -371,16 +416,19 @@ export default function ChatWidget() {
                         </div>
                     ))}
 
-                    {/* Typing Indicator */}
+                    {/* Typing Indicator - Updated untuk image generation */}
                     {isTyping && (
                         <div className="flex justify-start animate-fade-in-up">
+                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center mr-1.5 sm:mr-2 shrink-0 shadow-sm">
+                                <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
+                            </div>
                             <div className="bg-white dark:bg-zinc-800 rounded-2xl rounded-tl-sm px-4 sm:px-5 py-2.5 sm:py-3.5 shadow-sm border border-gray-100 dark:border-zinc-700 flex items-center gap-2 sm:gap-3">
                                 <div className="flex space-x-1 sm:space-x-1.5">
-                                    <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                    <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                    <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-indigo-400 rounded-full animate-bounce"></div>
+                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-indigo-400 rounded-full animate-bounce"></div>
                                 </div>
-                                <span className="text-[11px] sm:text-xs text-gray-400 font-medium italic">Bot is thinking...</span>
+                                <span className="text-[11px] sm:text-xs text-gray-400 font-medium italic">Sedang memproses...</span>
                             </div>
                         </div>
                     )}
@@ -405,7 +453,7 @@ export default function ChatWidget() {
                                     handleSendMessage();
                                 }
                             }}
-                            placeholder="Tulis pesan..."
+                            placeholder="Tulis pesan atau minta gambar..."
                             disabled={isTyping}
                             className="flex-1 bg-transparent text-gray-800 dark:text-gray-100 px-3 sm:px-4 py-1 sm:py-1.5 focus:outline-none text-[13px] sm:text-sm placeholder-gray-500 disabled:opacity-50 resize-none overflow-y-auto"
                             style={{ height: '34px' }}
@@ -414,8 +462,8 @@ export default function ChatWidget() {
                             onClick={handleSendMessage}
                             disabled={!inputValue.trim() || isTyping}
                             className={`p-2 sm:p-2.5 rounded-xl transition-all duration-300 flex items-center justify-center shadow-md ${!inputValue.trim() || isTyping
-                                    ? 'bg-gray-200 dark:bg-zinc-700 text-gray-400 cursor-not-allowed'
-                                    : 'bg-black dark:bg-indigo-600 text-white hover:scale-105 active:scale-95 hover:shadow-indigo-500/20'
+                                ? 'bg-gray-200 dark:bg-zinc-700 text-gray-400 cursor-not-allowed'
+                                : 'bg-black dark:bg-indigo-600 text-white hover:scale-105 active:scale-95 hover:shadow-indigo-500/20'
                                 }`}
                             aria-label="Send message"
                         >

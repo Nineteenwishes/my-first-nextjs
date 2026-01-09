@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Trash2, Copy, Check, Send, Bot, User, X, MessageSquare, ImageIcon } from 'lucide-react';
+import { Trash2, Copy, Check, Send, Bot, User, X, MessageSquare, ImageIcon, Download, Share2, Maximize2, Grid3X3, Loader2 } from 'lucide-react';
 
 // Updated interface dengan support gambar
 interface Message {
@@ -25,6 +25,13 @@ export default function ChatWidget() {
     const [copySuccess, setCopySuccess] = useState<number | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [isMounted, setIsMounted] = useState(false);
+
+    // Enhanced Image Features States
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+    const [lightboxPrompt, setLightboxPrompt] = useState<string | null>(null);
+    const [showGallery, setShowGallery] = useState(false);
+    const [generatedImages, setGeneratedImages] = useState<Array<{ image: string, prompt: string, timestamp: number }>>([]);
+    const [imageCopySuccess, setImageCopySuccess] = useState(false);
 
     // Audio: context & fungsi notif hp
     const audioCtxRef = useRef<AudioContext | null>(null);
@@ -99,6 +106,16 @@ export default function ChatWidget() {
                 sender: 'bot',
                 timestamp: new Date()
             }]);
+        }
+
+        // Load gallery from localStorage
+        const savedGallery = localStorage.getItem('chatbot-image-gallery');
+        if (savedGallery) {
+            try {
+                setGeneratedImages(JSON.parse(savedGallery));
+            } catch (e) {
+                console.error("Failed to parse gallery", e);
+            }
         }
     }, [isMounted]);
 
@@ -186,6 +203,12 @@ export default function ChatWidget() {
             };
 
             setMessages(prev => [...prev, botMessage]);
+
+            // Save to gallery if image was generated
+            if (aiResponse.image && aiResponse.imagePrompt) {
+                saveToGallery(aiResponse.image, aiResponse.imagePrompt);
+            }
+
             playMobileNotif();
         } catch (error) {
             setIsTyping(false);
@@ -250,9 +273,83 @@ export default function ChatWidget() {
         }
     };
 
-    // Handler untuk buka gambar di tab baru
-    const handleImageClick = (imageData: string) => {
-        window.open(imageData, '_blank');
+    // Handler untuk buka lightbox (bukan tab baru)
+    const handleImageClick = (imageData: string, prompt?: string) => {
+        setLightboxImage(imageData);
+        setLightboxPrompt(prompt || null);
+    };
+
+    // Handler download gambar
+    const handleDownloadImage = (imageData: string, prompt?: string) => {
+        try {
+            // Convert base64 to blob
+            const byteString = atob(imageData.split(',')[1]);
+            const mimeType = imageData.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([ab], { type: mimeType });
+
+            // Create download link
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `generated-${Date.now()}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Download failed:', error);
+        }
+    };
+
+    // Handler copy gambar ke clipboard
+    const handleCopyImage = async (imageData: string) => {
+        try {
+            // Try using Clipboard API with blob
+            const response = await fetch(imageData);
+            const blob = await response.blob();
+            await navigator.clipboard.write([
+                new ClipboardItem({ [blob.type]: blob })
+            ]);
+            setImageCopySuccess(true);
+            setTimeout(() => setImageCopySuccess(false), 2000);
+        } catch (error) {
+            // Fallback: copy base64 URL
+            try {
+                await navigator.clipboard.writeText(imageData);
+                setImageCopySuccess(true);
+                setTimeout(() => setImageCopySuccess(false), 2000);
+            } catch (e) {
+                console.error('Copy failed:', e);
+            }
+        }
+    };
+
+    // Save image to gallery
+    const saveToGallery = (image: string, prompt: string) => {
+        const newImage = { image, prompt, timestamp: Date.now() };
+        const updatedGallery = [...generatedImages, newImage];
+        setGeneratedImages(updatedGallery);
+        localStorage.setItem('chatbot-image-gallery', JSON.stringify(updatedGallery));
+    };
+
+    // Delete from gallery
+    const deleteFromGallery = (timestamp: number) => {
+        const updatedGallery = generatedImages.filter(img => img.timestamp !== timestamp);
+        setGeneratedImages(updatedGallery);
+        localStorage.setItem('chatbot-image-gallery', JSON.stringify(updatedGallery));
+    };
+
+    // Clear all gallery
+    const clearGallery = () => {
+        if (window.confirm('Hapus semua gambar di galeri?')) {
+            setGeneratedImages([]);
+            localStorage.removeItem('chatbot-image-gallery');
+        }
     };
 
     const formatTime = (date: Date) => {
@@ -291,7 +388,20 @@ export default function ChatWidget() {
                         </div>
                     </div>
                     <div className="flex items-center space-x-1">
-                        {/* 3. Clear Chat Button */}
+                        {/* Gallery Button */}
+                        <button
+                            onClick={() => setShowGallery(!showGallery)}
+                            className={`text-white/40 hover:text-indigo-400 hover:bg-white/10 rounded-lg p-1.5 sm:p-2 transition-all relative ${generatedImages.length > 0 ? 'text-white/60' : ''}`}
+                            title="Galeri Gambar"
+                        >
+                            <Grid3X3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            {generatedImages.length > 0 && (
+                                <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-indigo-500 rounded-full text-[8px] text-white flex items-center justify-center font-bold">
+                                    {generatedImages.length > 9 ? '9+' : generatedImages.length}
+                                </span>
+                            )}
+                        </button>
+                        {/* Clear Chat Button */}
                         <button
                             onClick={handleClearChat}
                             className="text-white/40 hover:text-red-400 hover:bg-white/10 rounded-lg p-1.5 sm:p-2 transition-all group"
@@ -362,24 +472,39 @@ export default function ChatWidget() {
                                         <p className="text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
                                     )}
 
-                                    {/* Generated Image Display */}
+                                    {/* Generated Image Display with Action Buttons */}
                                     {message.image && (
                                         <div className="mt-3 space-y-2">
-                                            <div
-                                                className="relative group/image cursor-pointer overflow-hidden rounded-xl border border-gray-200 dark:border-zinc-600 shadow-lg hover:shadow-xl transition-all duration-300"
-                                                onClick={() => handleImageClick(message.image!)}
-                                            >
+                                            <div className="relative group/image overflow-hidden rounded-xl border border-gray-200 dark:border-zinc-600 shadow-lg">
                                                 <img
                                                     src={message.image}
                                                     alt="Generated image"
-                                                    className="w-full max-w-full rounded-xl hover:scale-[1.02] transition-transform duration-300"
+                                                    className="w-full max-w-full rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
+                                                    onClick={() => handleImageClick(message.image!, message.imagePrompt)}
                                                 />
-                                                {/* Hover overlay */}
-                                                <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors duration-300 flex items-center justify-center">
-                                                    <div className="opacity-0 group-hover/image:opacity-100 transition-opacity duration-300 bg-white/90 dark:bg-zinc-800/90 px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg">
-                                                        <ImageIcon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-200">Klik untuk perbesar</span>
-                                                    </div>
+                                                {/* Action Buttons Overlay */}
+                                                <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover/image:opacity-100 transition-opacity duration-200">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleImageClick(message.image!, message.imagePrompt); }}
+                                                        className="p-1.5 bg-white/90 dark:bg-zinc-800/90 rounded-lg shadow-lg hover:bg-white dark:hover:bg-zinc-700 transition-colors"
+                                                        title="Perbesar"
+                                                    >
+                                                        <Maximize2 className="w-3.5 h-3.5 text-gray-700 dark:text-gray-200" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDownloadImage(message.image!, message.imagePrompt); }}
+                                                        className="p-1.5 bg-white/90 dark:bg-zinc-800/90 rounded-lg shadow-lg hover:bg-white dark:hover:bg-zinc-700 transition-colors"
+                                                        title="Download"
+                                                    >
+                                                        <Download className="w-3.5 h-3.5 text-gray-700 dark:text-gray-200" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleCopyImage(message.image!); }}
+                                                        className="p-1.5 bg-white/90 dark:bg-zinc-800/90 rounded-lg shadow-lg hover:bg-white dark:hover:bg-zinc-700 transition-colors"
+                                                        title="Copy Gambar"
+                                                    >
+                                                        {imageCopySuccess ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Share2 className="w-3.5 h-3.5 text-gray-700 dark:text-gray-200" />}
+                                                    </button>
                                                 </div>
                                             </div>
                                             {message.imagePrompt && (
@@ -416,19 +541,26 @@ export default function ChatWidget() {
                         </div>
                     ))}
 
-                    {/* Typing Indicator - Updated untuk image generation */}
+                    {/* Enhanced Typing/Loading Indicator */}
                     {isTyping && (
                         <div className="flex justify-start animate-fade-in-up">
                             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center mr-1.5 sm:mr-2 shrink-0 shadow-sm">
-                                <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
+                                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400 animate-spin" />
                             </div>
-                            <div className="bg-white dark:bg-zinc-800 rounded-2xl rounded-tl-sm px-4 sm:px-5 py-2.5 sm:py-3.5 shadow-sm border border-gray-100 dark:border-zinc-700 flex items-center gap-2 sm:gap-3">
-                                <div className="flex space-x-1 sm:space-x-1.5">
-                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-indigo-400 rounded-full animate-bounce"></div>
+                            <div className="bg-white dark:bg-zinc-800 rounded-2xl rounded-tl-sm px-4 sm:px-5 py-2.5 sm:py-3.5 shadow-sm border border-gray-100 dark:border-zinc-700">
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="flex space-x-1 sm:space-x-1.5">
+                                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-indigo-400 rounded-full animate-bounce"></div>
+                                    </div>
+                                    <span className="text-[11px] sm:text-xs text-gray-400 font-medium italic">Sedang memproses...</span>
                                 </div>
-                                <span className="text-[11px] sm:text-xs text-gray-400 font-medium italic">Sedang memproses...</span>
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                    <div className="h-1 flex-1 bg-gray-100 dark:bg-zinc-700 rounded-full overflow-hidden">
+                                        <div className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -492,6 +624,119 @@ export default function ChatWidget() {
                     </>
                 )}
             </button>
+
+            {/* Lightbox Modal */}
+            {lightboxImage && (
+                <div
+                    className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={() => { setLightboxImage(null); setLightboxPrompt(null); }}
+                >
+                    <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={e => e.stopPropagation()}>
+                        <img
+                            src={lightboxImage}
+                            alt="Generated image"
+                            className="w-full h-auto max-h-[80vh] object-contain rounded-xl shadow-2xl"
+                        />
+                        {/* Action buttons */}
+                        <div className="absolute top-4 right-4 flex gap-2">
+                            <button
+                                onClick={() => handleDownloadImage(lightboxImage, lightboxPrompt || undefined)}
+                                className="p-2 bg-white/90 dark:bg-zinc-800/90 rounded-lg shadow-lg hover:bg-white dark:hover:bg-zinc-700 transition-colors"
+                                title="Download"
+                            >
+                                <Download className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+                            </button>
+                            <button
+                                onClick={() => handleCopyImage(lightboxImage)}
+                                className="p-2 bg-white/90 dark:bg-zinc-800/90 rounded-lg shadow-lg hover:bg-white dark:hover:bg-zinc-700 transition-colors"
+                                title="Copy"
+                            >
+                                {imageCopySuccess ? <Check className="w-5 h-5 text-green-500" /> : <Share2 className="w-5 h-5 text-gray-700 dark:text-gray-200" />}
+                            </button>
+                            <button
+                                onClick={() => { setLightboxImage(null); setLightboxPrompt(null); }}
+                                className="p-2 bg-white/90 dark:bg-zinc-800/90 rounded-lg shadow-lg hover:bg-white dark:hover:bg-zinc-700 transition-colors"
+                                title="Tutup"
+                            >
+                                <X className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+                            </button>
+                        </div>
+                        {/* Prompt display */}
+                        {lightboxPrompt && (
+                            <div className="absolute bottom-4 left-4 right-4 bg-black/70 backdrop-blur-sm rounded-lg p-3">
+                                <p className="text-white text-sm"><span className="font-semibold">Prompt:</span> {lightboxPrompt}</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Gallery Panel */}
+            {showGallery && (
+                <div className="absolute bottom-16 right-0 w-[280px] sm:w-[320px] md:w-[350px] max-h-[420px] sm:max-h-[480px] bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-zinc-800 overflow-hidden z-50">
+                    <div className="bg-black dark:bg-zinc-800 rounded-t-2xl p-3 sm:p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Grid3X3 className="w-5 h-5 text-white" />
+                            <h3 className="text-white font-semibold text-sm sm:text-base">Galeri Gambar ({generatedImages.length})</h3>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            {generatedImages.length > 0 && (
+                                <button
+                                    onClick={clearGallery}
+                                    className="text-white/40 hover:text-red-400 hover:bg-white/10 rounded-lg p-1.5 transition-all"
+                                    title="Hapus Semua"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setShowGallery(false)}
+                                className="text-white/40 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-all"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="p-3 overflow-y-auto max-h-[340px] sm:max-h-[400px]">
+                        {generatedImages.length === 0 ? (
+                            <div className="text-center py-8 text-gray-400 dark:text-gray-500">
+                                <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">Belum ada gambar</p>
+                                <p className="text-xs mt-1">Minta saya generate gambar untuk mulai!</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                                {generatedImages.map((img) => (
+                                    <div key={img.timestamp} className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-700">
+                                        <img
+                                            src={img.image}
+                                            alt="Generated"
+                                            className="w-full aspect-square object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                            onClick={() => handleImageClick(img.image, img.prompt)}
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                                            <button
+                                                onClick={() => handleDownloadImage(img.image, img.prompt)}
+                                                className="p-1.5 bg-white/90 rounded-lg shadow-lg hover:bg-white transition-colors"
+                                                title="Download"
+                                            >
+                                                <Download className="w-3.5 h-3.5 text-gray-700" />
+                                            </button>
+                                            <button
+                                                onClick={() => deleteFromGallery(img.timestamp)}
+                                                className="p-1.5 bg-red-500/90 rounded-lg shadow-lg hover:bg-red-500 transition-colors"
+                                                title="Hapus"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5 text-white" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

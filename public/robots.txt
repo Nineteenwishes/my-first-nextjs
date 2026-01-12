@@ -1,0 +1,8 @@
+# Robots.txt for Akbar Maulana Portfolio
+# https://portofolio-akbarr.vercel.app
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://portofolio-akbarr.vercel.app/sitemap.xml

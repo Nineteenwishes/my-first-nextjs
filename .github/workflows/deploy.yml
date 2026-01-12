@@ -5,9 +5,10 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,6 +19,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
 
       - name: Install Vercel CLI
         run: npm install -g vercel
@@ -25,29 +30,34 @@ jobs:
       - name: Pull Vercel Environment
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "Using PREVIEW environment"
             vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
           else
-            echo "Using PRODUCTION environment"
             vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
           fi
 
       - name: Build Project
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "Building PREVIEW"
             vercel build --token=${{ secrets.VERCEL_TOKEN }}
           else
-            echo "Building PRODUCTION"
             vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
           fi
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
 
       - name: Deploy Project
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "Deploying PREVIEW"
             vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
           else
-            echo "Deploying PRODUCTION"
             vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
           fi

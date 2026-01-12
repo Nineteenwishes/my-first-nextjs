@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import ChatWidget from "@/components/ChatWidget";
 import StructuredData from "@/components/StructuredData";
+import ClientProviders from "@/components/ClientProviders";
 
 // Step 8: Font Optimization with display swap
 const inter = Inter({
@@ -59,8 +59,9 @@ export default function RootLayout({
             } catch (e) {} })();`,
           }}
         />
-        {children}
-        <ChatWidget />
+        <ClientProviders>
+          {children}
+        </ClientProviders>
       </body>
     </html>
   );

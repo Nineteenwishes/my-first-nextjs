@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Trash2, Copy, Check, Send, Bot, User, X, MessageSquare, ImageIcon, Download, Share2, Maximize2, Grid3X3, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Trash2, Copy, Check, Send, Bot, User, X, MessageSquare, ImageIcon, Download, Share2, Maximize2, Grid3X3, Loader2 } from 'lucide-react';
 
 // Updated interface dengan support gambar
 interface Message {
@@ -438,24 +436,21 @@ export default function ChatWidget() {
                                         : 'bg-white dark:bg-zinc-800 text-gray-800 dark:text-gray-100 rounded-2xl rounded-tl-sm border border-gray-100 dark:border-zinc-700'
                                         }`}
                                 >
-                                    {/* 2. Markdown Rendering */}
+                                    {/* 2. Markdown Rendering - Lightweight version without heavy syntax highlighter */}
                                     {message.sender === 'bot' ? (
                                         <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-a:text-indigo-500 dark:prose-a:text-indigo-400">
                                             <ReactMarkdown
                                                 remarkPlugins={[remarkGfm]}
                                                 components={{
-                                                    code({ node, inline, className, children, ...props }: any) {
+                                                    code({ inline, className, children, ...props }: any) {
                                                         const match = /language-(\w+)/.exec(className || '');
                                                         return !inline && match ? (
                                                             <div className="rounded-xl overflow-hidden my-2 sm:my-3 border border-zinc-200 dark:border-zinc-700">
-                                                                <SyntaxHighlighter
-                                                                    style={vscDarkPlus}
-                                                                    language={match[1]}
-                                                                    PreTag="div"
-                                                                    {...props}
-                                                                >
-                                                                    {String(children).replace(/\n$/, '')}
-                                                                </SyntaxHighlighter>
+                                                                <div className="bg-zinc-900 text-gray-100 p-3 sm:p-4 overflow-x-auto text-xs sm:text-sm font-mono">
+                                                                    <pre className="whitespace-pre-wrap break-words">
+                                                                        <code>{String(children).replace(/\n$/, '')}</code>
+                                                                    </pre>
+                                                                </div>
                                                             </div>
                                                         ) : (
                                                             <code className="bg-zinc-100 dark:bg-zinc-700 px-1.5 py-0.5 rounded-md text-pink-500 text-[12px] sm:text-[13px] font-mono" {...props}>

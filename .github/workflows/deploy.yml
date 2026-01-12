@@ -1,44 +1,53 @@
-name: Deploy 
+name: Deploy to Vercel
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
-  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
       - name: Install Vercel CLI
-        run: npm i -g vercel
+        run: npm install -g vercel
 
       - name: Pull Vercel Environment
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Using PREVIEW environment"
+            vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          else
+            echo "Using PRODUCTION environment"
+            vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          fi
 
       - name: Build Project
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy
         run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Building PREVIEW"
+            vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          else
+            echo "Building PRODUCTION"
+            vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          fi
+
+      - name: Deploy Project
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Deploying PREVIEW"
             vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
           else
+            echo "Deploying PRODUCTION"
             vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
           fi

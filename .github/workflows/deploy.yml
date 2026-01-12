@@ -54,10 +54,41 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel
 
-      - name: Deploy Project
+      - name: Pull Vercel Environment
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+            vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
           else
-            vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+            vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
           fi
+
+      - name: Deploy Project
+        id: deploy
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          else
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          fi
+          echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR with Deployment URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deploymentUrl = '${{ steps.deploy.outputs.url }}';
+            const body = `## 🚀 Preview Deployment Ready!
+            
+            | Status | URL |
+            |--------|-----|
+            | ✅ Deployed | [${deploymentUrl}](${deploymentUrl}) |
+            
+            > This preview deployment was automatically created for this pull request.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

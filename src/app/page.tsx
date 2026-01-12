@@ -12,9 +12,9 @@ export default function Home() {
                     <div>
                         <div className="flex items-end gap-4 sm:gap-6">
                             <h1 className="text-4xl sm:text-6xl md:text-7xl font-black tracking-tight leading-none">
-                                Akbar <span className="text-gray-400 font-black">Maulana</span>
+                                Akbar <span className="text-zinc-600 dark:text-zinc-400 font-black">Maulana</span>
                             </h1>
-                            <span className="text-sm sm:text-xl md:text-2xl text-gray-500 dark:text-gray-300 font-light mb-1 sm:mb-2">Web Developer</span>
+                            <span className="text-sm sm:text-xl md:text-2xl text-zinc-600 dark:text-zinc-400 font-light mb-1 sm:mb-2">Web Developer</span>
                         </div>
                         <div className="h-1.5 w-20 sm:w-32 bg-gray-800 dark:bg-gray-200 mt-3" aria-hidden="true"></div>
                     </div>

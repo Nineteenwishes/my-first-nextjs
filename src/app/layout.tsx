@@ -1,81 +1,35 @@
-import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import ChatWidget from "@/components/ChatWidget";
+import StructuredData from "@/components/StructuredData";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Step 8: Font Optimization with display swap
+const inter = Inter({
   subsets: ["latin"],
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
-  ],
-};
-
+// Step 2: Metadata API
 export const metadata: Metadata = {
   metadataBase: new URL("https://portofolio-akbarr.vercel.app"),
-  title: "Akbar Maulana | Web Developer",
+  title: "Akbar Maulana - Web Developer Portfolio",
   description:
-    "Saya adalah web developer yang fokus membangun produk digital yang cepat, bersih, dan memberikan pengalaman pengguna terbaik. Saat ini prakerin di Ashari Tech.",
-  keywords: [
-    "Akbar Maulana",
-    "Web Developer",
-    "Frontend Developer",
-    "React",
-    "Next.js",
-    "TypeScript",
-    "Indonesia",
-  ],
-  authors: [{ name: "Akbar Maulana" }],
-  creator: "Akbar Maulana",
-  publisher: "Akbar Maulana",
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-    },
-  },
+    "Portfolio Akbar Maulana, Web Developer Next.js & React. Fokus membangun produk digital yang cepat, bersih, dan memberikan pengalaman pengguna terbaik.",
+  keywords: ["web developer", "next.js", "react", "portfolio", "frontend developer", "Akbar Maulana"],
   openGraph: {
     type: "website",
-    locale: "id_ID",
     url: "https://portofolio-akbarr.vercel.app",
-    siteName: "Akbar Maulana Portfolio",
-    title: "Akbar Maulana | Web Developer",
-    description:
-      "Web developer yang fokus membangun produk digital yang cepat, bersih, dan memberikan pengalaman pengguna terbaik.",
-    images: [
-      {
-        url: "/images/profile-dark.JPG",
-        width: 1200,
-        height: 630,
-        alt: "Akbar Maulana - Web Developer",
-      },
-    ],
+    title: "Akbar Maulana - Web Developer",
+    description: "Portfolio personal web developer Next.js & React",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Akbar Maulana | Web Developer",
-    description:
-      "Web developer yang fokus membangun produk digital yang cepat, bersih, dan memberikan pengalaman pengguna terbaik.",
-    images: ["/images/profile-dark.JPG"],
+    title: "Akbar Maulana - Web Developer",
+    images: ["/og-image.png"],
   },
-  alternates: {
-    canonical: "https://portofolio-akbarr.vercel.app",
-  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({
@@ -85,9 +39,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <head>
+        <StructuredData />
+      </head>
+      <body className={`${inter.className} antialiased`}>
         {/* Set tema sebelum React hydration */}
         <script
           dangerouslySetInnerHTML={{

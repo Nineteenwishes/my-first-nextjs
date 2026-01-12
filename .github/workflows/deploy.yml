@@ -43,6 +43,13 @@ jobs:
             vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
           fi
 
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vercel-build
+          path: .vercel/output
+          retention-days: 1
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -53,6 +60,12 @@ jobs:
 
       - name: Install Vercel CLI
         run: npm install -g vercel
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: vercel-build
+          path: .vercel/output
 
       - name: Pull Vercel Environment
         run: |
